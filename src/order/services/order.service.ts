@@ -1,7 +1,8 @@
-import { Injectable } from "@nestjs/common";
-import { Order, OrderProduct } from "../interfaces";
+import { HttpException, HttpStatus, Injectable } from "@nestjs/common";
+import { Order } from "../interfaces";
 import { v4 as uuidv4 } from "uuid";
 import { ProductService } from "../../product/services/product.service";
+import { OrderDTO, OrderProductDTO, UpdateOrderProductDto } from "../dtos";
 
 @Injectable()
 export class OrderService {
@@ -20,55 +21,49 @@ export class OrderService {
     status: "NEW",
   };
 
-  createOrder(): Order {
+  public createOrder(): OrderDTO {
     const newOrder: Order = this.newOrder;
     this.orders.push(newOrder);
     return newOrder;
   }
 
-  getOrderById(orderId: string): Order | string {
+  public getOrderById(orderId: string): OrderDTO {
     const order = this.orders.find((order) => order.id === orderId);
-    if (!order) return "Not found";
+    if (!order)
+      throw new HttpException("Invalid parameters", HttpStatus.BAD_REQUEST);
     return order;
   }
 
-  updateOrderStatus(orderId: string, status: string): Order | string {
+  public updateOrderStatus(orderId: string, status: string): string {
     const order = this.orders.find((order) => order.id === orderId);
     if (order) {
       if (order.status.toLowerCase() === "paid")
+        throw new HttpException("Invalid order status", HttpStatus.BAD_REQUEST);
+      if (status.toLowerCase() === "paid") {
+        order.status = status;
         order.amount.paid = order.amount.total;
-      order.status = status;
-      return order;
+        return "OK";
+      }
+      throw new HttpException("Invalid order status", HttpStatus.BAD_REQUEST);
     }
-    //f96d1fa8-ca78-4bcf-a664-f8a58e01bc10
-    // invalid order status
-    //check response
-    return "Not found";
+    throw new HttpException("Not found", HttpStatus.NOT_FOUND);
   }
 
-  addProductToOrder(
-    orderId: string,
-    productIds: number[]
-  ): OrderProduct[] | string {
+  public addProductToOrder(orderId: string, productIds: number[]): string {
     const order = this.orders.find((order) => order.id === orderId);
-    if (!order) return "Not found";
+    if (!order) throw new HttpException("Not found", HttpStatus.NOT_FOUND);
 
     const hasDuplicates = new Set(productIds).size !== productIds.length;
     if (order.status.toLowerCase() === "paid" || hasDuplicates)
-      return "Invalid parameters";
+      throw new HttpException("Invalid order status", HttpStatus.BAD_REQUEST);
 
-    // Check if all products exist before adding any to the order
     const allProductsExist = productIds.every(
       (id) => this.productsService.getProductById(id) !== undefined
     );
-
-    if (!allProductsExist) {
-      return "Invalid parameters";
-    }
+    if (!allProductsExist)
+      throw new HttpException("Invalid order status", HttpStatus.BAD_REQUEST);
 
     productIds.forEach((id) => {
-      const product = this.productsService.getProductById(id); // This check is now redundant but kept for safety
-
       const existingProductIndex = order.products.findIndex(
         (op) => op.product_id === id
       );
@@ -76,6 +71,7 @@ export class OrderService {
       if (existingProductIndex > -1) {
         order.products[existingProductIndex].quantity += 1;
       } else {
+        const product = this.productsService.getProductById(id);
         order.products.push({
           id: uuidv4(),
           name: product.name,
@@ -84,34 +80,32 @@ export class OrderService {
           quantity: 1,
           replaced_with: null,
         });
+        order.amount.total += product.price;
       }
     });
 
-    return order.products;
+    return "OK";
   }
 
-  getOrderProducts(orderId: string): OrderProduct[] | string {
+  public getOrderProducts(orderId: string): OrderProductDTO[] {
     const order = this.orders.find((order) => order.id === orderId);
-    if (!order) return "Not found";
+    if (!order) throw new HttpException("Not found", HttpStatus.NOT_FOUND);
     return order.products;
   }
 
-  updateOrderProduct(
+  public updateOrderProduct(
     orderId: string,
     productId: string,
-    body:
-      | { quantity: number }
-      | {
-          replaced_with: {
-            product_id: number;
-            quantity: number;
-          };
-        }
-  ): Order | string {
-    if ("quantity" in body) {
-      return this.updateProductQuantity(orderId, productId, body.quantity);
-    } else if ("replaced_with" in body) {
-      const { product_id, quantity } = body.replaced_with;
+    updateOrderProductDto: UpdateOrderProductDto
+  ): string {
+    if ("quantity" in updateOrderProductDto) {
+      return this.updateProductQuantity(
+        orderId,
+        productId,
+        updateOrderProductDto.quantity
+      );
+    } else if ("replaced_with" in updateOrderProductDto) {
+      const { product_id, quantity } = updateOrderProductDto.replaced_with;
       return this.addReplacementProduct(
         orderId,
         productId,
@@ -119,49 +113,49 @@ export class OrderService {
         quantity
       );
     }
-    return "Invalid parameters";
+    throw new HttpException("Invalid order status", HttpStatus.BAD_REQUEST);
   }
 
-  updateProductQuantity(
+  private updateProductQuantity(
     orderId: string,
     productId: string,
     quantity: number
-  ): Order | string {
+  ): string {
     const order = this.orders.find((order) => order.id === orderId);
 
-    if (order) {
+    if (order && order.status.toLowerCase() !== "paid") {
       const productIndex = order.products.findIndex((p) => p.id === productId);
       if (productIndex > -1) {
         order.products[productIndex].quantity = quantity;
-        return order;
+        return "OK";
       }
     }
 
-    return "Not found";
+    throw new HttpException("Not found", HttpStatus.NOT_FOUND);
   }
 
-  addReplacementProduct(
+  private addReplacementProduct(
     orderId: string,
     productId: string,
     replacementProductId: number,
     replacementQuantity: number
-  ): Order | string {
+  ): string {
     const order = this.orders.find((order) => order.id === orderId);
-    if (!order) return "Not found";
-    if (order.status.toLowerCase() !== "paid") return "Invalid parameters";
-    //handle errors
+    if (!order) throw new HttpException("Not found", HttpStatus.NOT_FOUND);
+
+    if (order.status.toLowerCase() !== "paid")
+      throw new HttpException("Invalid order status", HttpStatus.BAD_REQUEST);
 
     const productIndex = order.products.findIndex(
       (product) => product.id === productId
     );
-    if (productIndex === -1) return "Not found";
-
-    const replacementProductDetails =
-      this.productsService.getProductById(replacementProductId);
-    if (!replacementProductDetails) return "Not found";
+    if (productIndex === -1)
+      throw new HttpException("Not found", HttpStatus.NOT_FOUND);
 
     const replacementProduct =
       this.productsService.getProductById(replacementProductId);
+    if (!replacementProduct)
+      throw new HttpException("Not found", HttpStatus.NOT_FOUND);
 
     order.products[productIndex].replaced_with = {
       id: uuidv4(),
@@ -172,6 +166,6 @@ export class OrderService {
       replaced_with: null,
     };
 
-    return order;
+    return "OK";
   }
 }
