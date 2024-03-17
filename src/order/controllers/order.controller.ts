@@ -9,7 +9,6 @@ import {
   Post,
 } from "@nestjs/common";
 import {
-  CreateOrderProductDto,
   OrderDTO,
   OrderProductDTO,
   UpdateOrderProductDto,
@@ -47,12 +46,9 @@ export class OrderController {
   @HttpCode(HttpStatus.CREATED)
   addProductToOrder(
     @Param("orderId") orderId: string,
-    @Body() createOrderProductDto: CreateOrderProductDto
+    @Body() productIds: number[]
   ): string {
-    return this.orderService.addProductToOrder(
-      orderId,
-      createOrderProductDto.productIds
-    );
+    return this.orderService.addProductToOrder(orderId, productIds);
   }
 
   @Get(":orderId/products")

@@ -9,20 +9,19 @@ export class OrderService {
   public constructor(private readonly productsService: ProductService) {}
 
   private orders: Order[] = [];
-  private newOrder: Order = {
-    amount: {
-      discount: "0.00",
-      paid: "0.00",
-      returns: "0.00",
-      total: "0.00",
-    },
-    id: uuidv4(),
-    products: [],
-    status: "NEW",
-  };
 
   public createOrder(): OrderDTO {
-    const newOrder: Order = this.newOrder;
+    const newOrder: Order = {
+      amount: {
+        discount: "0.00",
+        paid: "0.00",
+        returns: "0.00",
+        total: "0.00",
+      },
+      id: uuidv4(),
+      products: [],
+      status: "NEW",
+    };
     this.orders.push(newOrder);
     return newOrder;
   }
@@ -63,6 +62,7 @@ export class OrderService {
     if (!allProductsExist)
       throw new HttpException("Invalid order status", HttpStatus.BAD_REQUEST);
 
+    let total = +order.amount.total;
     productIds.forEach((id) => {
       const existingProductIndex = order.products.findIndex(
         (op) => op.product_id === id
@@ -80,10 +80,11 @@ export class OrderService {
           quantity: 1,
           replaced_with: null,
         });
-        order.amount.total += product.price;
+        total += +product.price;
       }
     });
 
+    order.amount.total = total.toString();
     return "OK";
   }
 
@@ -121,12 +122,22 @@ export class OrderService {
     productId: string,
     quantity: number
   ): string {
+    if (quantity < 0)
+      throw new HttpException("Invalid parameters", HttpStatus.BAD_REQUEST);
+
     const order = this.orders.find((order) => order.id === orderId);
 
     if (order && order.status.toLowerCase() !== "paid") {
       const productIndex = order.products.findIndex((p) => p.id === productId);
+      let total = +order.amount.total;
+
       if (productIndex > -1) {
+        total +=
+          quantity * +order.products[productIndex].price -
+          order.products[productIndex].quantity *
+            +order.products[productIndex].price;
         order.products[productIndex].quantity = quantity;
+        order.amount.total = total.toString();
         return "OK";
       }
     }
