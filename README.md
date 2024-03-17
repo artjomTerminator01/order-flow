@@ -1,7 +1,8 @@
 ## Description
 
 Here is a NestJs application running on PORT 3000 by default. You can specify PORT you need in .env file which is pushed to the repo for simplicity (usually it is not pushed to the repo because of the sensitive info it might contain).
-App can be run locally or in Docker. There are also some basic e2e tests (orders.e2e-spec.ts).
+App can be run locally or in Docker.
+There are also some basic e2e tests (orders.e2e-spec.ts)that I used during development process.
 
 All commands are listed bellow.
 

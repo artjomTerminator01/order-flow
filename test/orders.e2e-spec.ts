@@ -96,12 +96,11 @@ describe("OrderController (e2e)", () => {
 
     const orderId = createResponse.body.id;
     const newStatus = "PAID";
-    const testProductsIds = [123, 456];
 
     // Step 2: Add products to order
     await request(app.getHttpServer())
       .post(`/api/orders/${orderId}/products`)
-      .send(testProductsIds)
+      .send([123, 456])
       .expect(201);
 
     // Step 3: Update order status
