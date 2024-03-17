@@ -3,7 +3,7 @@ import * as request from "supertest";
 import { INestApplication } from "@nestjs/common";
 import { AppModule } from "../src/app.module";
 import { ProductService } from "../src/product/services";
-import { OrderProduct } from "../src/order/interfaces";
+import { Order, OrderProduct } from "../src/order/interfaces";
 
 describe("OrderController (e2e)", () => {
   let app: INestApplication;
@@ -71,7 +71,7 @@ describe("OrderController (e2e)", () => {
       .expect((res) => {
         expect(res.body.products.length).toEqual(4);
         expect(+res.body.amount.total).toEqual(
-          calculateProductsTotalPrice(testProductsIds)
+          calculateOrderTotalAmount(res.body)
         );
       });
 
@@ -135,10 +135,10 @@ describe("OrderController (e2e)", () => {
     // Step 2: Add a product to the order
     await request(app.getHttpServer())
       .post(`/api/orders/${orderId}/products`)
-      .send([productId])
+      .send([productId, 999])
       .expect(201);
 
-    const newQuantity = 0;
+    const newQuantity = 10;
     let orderProductId: string;
 
     // Retrieve the order to get the product's order ID
@@ -168,12 +168,22 @@ describe("OrderController (e2e)", () => {
         );
         expect(product).toBeDefined();
         expect(product.quantity).toEqual(newQuantity);
-        expect(res.body.amount.total).toEqual(
-          (newQuantity * +product.price).toString()
+        expect(+res.body.amount.total).toEqual(
+          calculateOrderTotalAmount(res.body)
         );
       });
 
-    //check with paid status
+    // Step 5: Update order status
+    await request(app.getHttpServer())
+      .patch(`/api/orders/${orderId}`)
+      .send({ status: "PAID" })
+      .expect(200);
+
+    // Step 6: Update order quantity with invalid status
+    await request(app.getHttpServer())
+      .patch(`/api/orders/${orderId}/products/${orderProductId}`)
+      .send({ quantity: 100 })
+      .expect(400);
   });
 
   it("/api/orders/:orderId/products/:productId (PATCH) should replace a product in the order", async () => {
@@ -207,8 +217,8 @@ describe("OrderController (e2e)", () => {
       });
 
     // Step 3: Replace the product with another product
-    const replacementProductId = 456; // New product ID to replace with
-    const replacementQuantity = 2; // Quantity of the replacement product
+    const replacementProductId = 456;
+    const replacementQuantity = 2;
 
     await request(app.getHttpServer())
       .patch(`/api/orders/${orderId}`)
@@ -247,12 +257,9 @@ describe("OrderController (e2e)", () => {
     await app.close();
   });
 
-  const calculateProductsTotalPrice = (productIds: number[]): number => {
-    return productIds.reduce((total, id) => {
-      const product = productService.getProductById(id);
-      return total + Number(product.price);
+  const calculateOrderTotalAmount = (order: Order): number => {
+    return order.products.reduce((total, product) => {
+      return total + +product.price * product.quantity;
     }, 0);
   };
 });
-
-//change order to orders and product to products

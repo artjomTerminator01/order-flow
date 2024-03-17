@@ -52,15 +52,15 @@ export class OrderService {
     const order = this.orders.find((order) => order.id === orderId);
     if (!order) throw new HttpException("Not found", HttpStatus.NOT_FOUND);
 
-    const hasDuplicates = new Set(productIds).size !== productIds.length;
-    if (order.status.toLowerCase() === "paid" || hasDuplicates)
+    if (order.status.toLowerCase() === "paid")
       throw new HttpException("Invalid order status", HttpStatus.BAD_REQUEST);
 
     const allProductsExist = productIds.every(
       (id) => this.productsService.getProductById(id) !== undefined
     );
-    if (!allProductsExist)
-      throw new HttpException("Invalid order status", HttpStatus.BAD_REQUEST);
+    const hasDuplicates = new Set(productIds).size !== productIds.length;
+    if (!allProductsExist || hasDuplicates)
+      throw new HttpException("Invalid parameters", HttpStatus.BAD_REQUEST);
 
     let total = +order.amount.total;
     productIds.forEach((id) => {
@@ -126,18 +126,22 @@ export class OrderService {
       throw new HttpException("Invalid parameters", HttpStatus.BAD_REQUEST);
 
     const order = this.orders.find((order) => order.id === orderId);
+    if (order.status.toLowerCase() === "paid")
+      throw new HttpException("Invalid order status", HttpStatus.BAD_REQUEST);
 
-    if (order && order.status.toLowerCase() !== "paid") {
+    if (order) {
       const productIndex = order.products.findIndex((p) => p.id === productId);
-      let total = +order.amount.total;
+      let totalAmount = +order.amount.total;
 
       if (productIndex > -1) {
-        total +=
-          quantity * +order.products[productIndex].price -
+        const newTotal = quantity * +order.products[productIndex].price;
+        const oldTotal =
           order.products[productIndex].quantity *
-            +order.products[productIndex].price;
+          +order.products[productIndex].price;
+        totalAmount += newTotal - oldTotal;
+
         order.products[productIndex].quantity = quantity;
-        order.amount.total = total.toString();
+        order.amount.total = totalAmount.toString();
         return "OK";
       }
     }
