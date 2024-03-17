@@ -14,21 +14,21 @@ import {
   UpdateOrderProductDto,
   UpdateOrderStatusDto,
 } from "../dtos";
-import { OrderService } from "../services/order.service";
+import { OrdersService } from "../services/orders.service";
 
 @Controller("api/orders")
-export class OrderController {
-  constructor(private readonly orderService: OrderService) {}
+export class OrdersController {
+  constructor(private readonly ordersService: OrdersService) {}
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
   createOrder(): OrderDTO {
-    return this.orderService.createOrder();
+    return this.ordersService.createOrder();
   }
 
   @Get(":orderId")
   getOrderById(@Param("orderId") orderId: string): OrderDTO {
-    return this.orderService.getOrderById(orderId);
+    return this.ordersService.getOrderById(orderId);
   }
 
   @Patch(":orderId")
@@ -36,7 +36,7 @@ export class OrderController {
     @Param("orderId") orderId: string,
     @Body() updateOrderStatusDto: UpdateOrderStatusDto
   ): string {
-    return this.orderService.updateOrderStatus(
+    return this.ordersService.updateOrderStatus(
       orderId,
       updateOrderStatusDto.status
     );
@@ -48,14 +48,14 @@ export class OrderController {
     @Param("orderId") orderId: string,
     @Body() productIds: number[]
   ): string {
-    return this.orderService.addProductToOrder(orderId, productIds);
+    return this.ordersService.addProductToOrder(orderId, productIds);
   }
 
   @Get(":orderId/products")
   getOrderProducts(
     @Param("orderId") orderId: string
   ): OrderProductDTO[] | string {
-    return this.orderService.getOrderProducts(orderId);
+    return this.ordersService.getOrderProducts(orderId);
   }
 
   @Patch(":orderId/products/:productId")
@@ -64,7 +64,7 @@ export class OrderController {
     @Param("productId") productId: string,
     @Body() updateOrderProductDto: UpdateOrderProductDto
   ): string {
-    return this.orderService.updateOrderProduct(
+    return this.ordersService.updateOrderProduct(
       orderId,
       productId,
       updateOrderProductDto

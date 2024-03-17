@@ -5,7 +5,7 @@ import { ProductService } from "../../product/services/product.service";
 import { OrderDTO, OrderProductDTO, UpdateOrderProductDto } from "../dtos";
 
 @Injectable()
-export class OrderService {
+export class OrdersService {
   public constructor(private readonly productsService: ProductService) {}
 
   private orders: Order[] = [];
