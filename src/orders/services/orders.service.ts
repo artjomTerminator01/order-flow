@@ -84,7 +84,7 @@ export class OrdersService {
       }
     });
 
-    order.amount.total = total.toString();
+    order.amount.total = total.toFixed(2);
     return "OK";
   }
 
@@ -114,7 +114,7 @@ export class OrdersService {
         quantity
       );
     }
-    throw new HttpException("Invalid order status", HttpStatus.BAD_REQUEST);
+    throw new HttpException("Invalid parameters", HttpStatus.BAD_REQUEST);
   }
 
   private updateProductQuantity(
@@ -134,14 +134,13 @@ export class OrdersService {
       let totalAmount = +order.amount.total;
 
       if (productIndex > -1) {
-        const newTotal = quantity * +order.products[productIndex].price;
-        const oldTotal =
-          order.products[productIndex].quantity *
-          +order.products[productIndex].price;
+        const product = order.products[productIndex];
+        const newTotal = quantity * +product.price;
+        const oldTotal = product.quantity * +product.price;
         totalAmount += newTotal - oldTotal;
 
-        order.products[productIndex].quantity = quantity;
-        order.amount.total = totalAmount.toString();
+        product.quantity = quantity;
+        order.amount.total = totalAmount.toFixed(2);
         return "OK";
       }
     }
@@ -155,6 +154,9 @@ export class OrdersService {
     replacementProductId: number,
     replacementQuantity: number
   ): string {
+    if (replacementQuantity < 0)
+      throw new HttpException("Invalid parameters", HttpStatus.BAD_REQUEST);
+
     const order = this.orders.find((order) => order.id === orderId);
     if (!order) throw new HttpException("Not found", HttpStatus.NOT_FOUND);
 
@@ -181,6 +183,42 @@ export class OrdersService {
       replaced_with: null,
     };
 
+    const amountBalance = this.calculateOrderAmountBalance(order);
+
+    if (amountBalance < 0) {
+      order.amount.returns = (-amountBalance).toFixed(2);
+      order.amount.total = (+order.amount.paid - +order.amount.returns).toFixed(
+        2
+      );
+      order.amount.discount = "0.00";
+      if (+order.amount.total < 0) order.amount.total = "0.00";
+    } else if (amountBalance > 0) {
+      order.amount.discount = amountBalance.toFixed(2);
+      order.amount.returns = "0.00";
+      order.amount.total = order.amount.paid;
+    }
+
     return "OK";
+  }
+
+  private calculateOrderAmountBalance(order: Order): number {
+    let total = 0;
+
+    order.products.forEach((product) => {
+      if (product.replaced_with) {
+        const oldTotal = +product.price * product.quantity;
+        const newTotal =
+          +product.replaced_with.price * product.replaced_with.quantity;
+        if (oldTotal < newTotal) {
+          total += newTotal - oldTotal;
+        } else if (oldTotal > newTotal) {
+          total -=
+            (+product.price - +product.replaced_with.price) *
+            product.replaced_with.quantity;
+        }
+      }
+    });
+
+    return total;
   }
 }

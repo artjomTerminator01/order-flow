@@ -194,32 +194,41 @@ describe("OrderController (e2e)", () => {
 
     const orderId = createResponse.body.id;
 
-    // Step 2: Add a product to the order
-    const initialProductId = 123; // Example product ID
+    // Step 2: Add a products to the order
     await request(app.getHttpServer())
       .post(`/api/orders/${orderId}/products`)
-      .send([initialProductId])
+      .send([123, 456, 879])
       .expect(201);
 
     let orderProductId: string;
-
+    let orderProductId1: string;
+    let orderProductId2: string;
     // Retrieve the order to get the product's order ID
     await request(app.getHttpServer())
       .get(`/api/orders/${orderId}`)
       .expect(200)
       .expect((res) => {
         const product = res.body.products.find(
-          (p: OrderProduct) => p.product_id === initialProductId
+          (p: OrderProduct) => p.product_id === 123
         );
-        if (product) {
-          orderProductId = product.id;
-        }
+        if (product) orderProductId = product.id;
+
+        const product1 = res.body.products.find(
+          (p: OrderProduct) => p.product_id === 456
+        );
+        if (product1) orderProductId1 = product1.id;
+
+        const product2 = res.body.products.find(
+          (p: OrderProduct) => p.product_id === 879
+        );
+        if (product2) orderProductId2 = product2.id;
       });
 
-    // Step 3: Replace the product with another product
-    const replacementProductId = 456;
-    const replacementQuantity = 2;
+    await request(app.getHttpServer())
+      .patch(`/api/orders/${orderId}/products/${orderProductId2}`)
+      .send({ quantity: 4 });
 
+    // Step 3: Update order status to "PAID"
     await request(app.getHttpServer())
       .patch(`/api/orders/${orderId}`)
       .send({ status: "PAID" })
@@ -228,18 +237,38 @@ describe("OrderController (e2e)", () => {
         expect(res.text).toEqual("OK");
       });
 
-    // Step 4: Update order status to "PAID"
+    // Step 4: Replace the product with another product
     await request(app.getHttpServer())
       .patch(`/api/orders/${orderId}/products/${orderProductId}`)
       .send({
         replaced_with: {
-          product_id: replacementProductId,
-          quantity: replacementQuantity,
+          product_id: 879,
+          quantity: 2,
         },
       })
       .expect(200);
 
-    // Step 5: Retrieve the updated order and verify the product has been replaced
+    await request(app.getHttpServer())
+      .patch(`/api/orders/${orderId}/products/${orderProductId1}`)
+      .send({
+        replaced_with: {
+          product_id: 123,
+          quantity: 1,
+        },
+      })
+      .expect(200);
+
+    await request(app.getHttpServer())
+      .patch(`/api/orders/${orderId}/products/${orderProductId2}`)
+      .send({
+        replaced_with: {
+          product_id: 879,
+          quantity: 1,
+        },
+      })
+      .expect(200);
+
+    // Step 5: Retrieve the updated order, check returns and verify the product has been replaced
     await request(app.getHttpServer())
       .get(`/api/orders/${orderId}`)
       .expect(200)
@@ -248,8 +277,30 @@ describe("OrderController (e2e)", () => {
           (p: OrderProduct) => p.id === orderProductId
         ).replaced_with;
         expect(replacedProduct).toBeDefined();
-        expect(replacedProduct.product_id).toEqual(replacementProductId);
-        expect(replacedProduct.quantity).toEqual(replacementQuantity);
+        expect(+res.body.amount.discount).toEqual(0);
+        expect(+res.body.amount.returns).toEqual(1.49);
+        expect(+res.body.amount.total).toEqual(2.97);
+      });
+
+    //Step 6: Change product quantity to change amount
+    await request(app.getHttpServer())
+      .patch(`/api/orders/${orderId}/products/${orderProductId}`)
+      .send({
+        replaced_with: {
+          product_id: 879,
+          quantity: 10,
+        },
+      })
+      .expect(200);
+
+    // // Step 7: Retrieve the updated order to check discount amount
+    await request(app.getHttpServer())
+      .get(`/api/orders/${orderId}`)
+      .expect(200)
+      .expect((res) => {
+        expect(+res.body.amount.discount).toEqual(1.87);
+        expect(+res.body.amount.returns).toEqual(0);
+        expect(+res.body.amount.total).toEqual(4.46);
       });
   });
 
