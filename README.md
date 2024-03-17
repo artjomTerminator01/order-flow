@@ -10,6 +10,8 @@ All commands are listed bellow.
 
 You need to have Node installed on your system https://nodejs.org/en/download
 
+If you want to run app using docker-compose, you need to install Docker on your system https://docs.docker.com/engine/install/
+
 ## Installation
 
 ```bash
