@@ -3,7 +3,7 @@ import { ProductDTO } from "../dtos";
 import { Product } from "../interfaces";
 
 @Injectable()
-export class ProductService {
+export class ProductsService {
   private products: Product[] = [
     { id: 123, name: "Ketchup", price: "0.45" },
     { id: 456, name: "Beer", price: "2.33" },

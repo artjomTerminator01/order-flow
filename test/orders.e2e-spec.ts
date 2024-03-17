@@ -2,12 +2,12 @@ import { Test, TestingModule } from "@nestjs/testing";
 import * as request from "supertest";
 import { INestApplication } from "@nestjs/common";
 import { AppModule } from "../src/app.module";
-import { ProductService } from "../src/product/services";
+import { ProductsService } from "../src/products/services";
 import { Order, OrderProduct } from "../src/orders/interfaces";
 
 describe("OrderController (e2e)", () => {
   let app: INestApplication;
-  let productService: ProductService;
+  let productsService: ProductsService;
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -15,7 +15,7 @@ describe("OrderController (e2e)", () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
-    productService = moduleFixture.get<ProductService>(ProductService);
+    productsService = moduleFixture.get<ProductsService>(ProductsService);
 
     await app.init();
   });

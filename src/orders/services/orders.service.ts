@@ -1,12 +1,12 @@
 import { HttpException, HttpStatus, Injectable } from "@nestjs/common";
 import { Order } from "../interfaces";
 import { v4 as uuidv4 } from "uuid";
-import { ProductService } from "../../product/services/product.service";
+import { ProductsService } from "../../products/services/products.service";
 import { OrderDTO, OrderProductDTO, UpdateOrderProductDto } from "../dtos";
 
 @Injectable()
 export class OrdersService {
-  public constructor(private readonly productsService: ProductService) {}
+  public constructor(private readonly productsService: ProductsService) {}
 
   private orders: Order[] = [];
 
